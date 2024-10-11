@@ -61,6 +61,7 @@ type OSVariant struct {
 type Config struct {
 	RemoveConfigFiles bool
 	XMLConfig         string
+	XMLConfigPath     string
 	Name              string
 	Memory            uint
 	CPUset            string

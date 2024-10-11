@@ -22,7 +22,7 @@ var (
 			"user":     hclspec.NewAttr("user", "string", false),
 			"password": hclspec.NewAttr("password", "string", false),
 		})),
-		"data_dir":     hclspec.NewAttr("data_dir", "string", false),
+		"data_dir":    hclspec.NewAttr("data_dir", "string", false),
 		"image_paths": hclspec.NewAttr("image_paths", "list(string)", false),
 	})
 
@@ -31,10 +31,11 @@ var (
 	// this is used to validated the configuration specified for the plugin
 	// when a job is submitted.
 	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
+		"domain_xml":                      hclspec.NewAttr("domain_xml", "string", false),
 		"network_interface":               net.NetworkInterfaceHCLSpec(),
 		"use_thin_copy":                   hclspec.NewAttr("use_thin_copy", "bool", false),
-		"primary_disk_size":               hclspec.NewAttr("primary_disk_size", "number", true),
-		"image":                           hclspec.NewAttr("image", "string", true),
+		"primary_disk_size":               hclspec.NewAttr("primary_disk_size", "number", false),
+		"image":                           hclspec.NewAttr("image", "string", false),
 		"hostname":                        hclspec.NewAttr("hostname", "string", false),
 		"user_data":                       hclspec.NewAttr("user_data", "string", false),
 		"default_user_authorized_ssh_key": hclspec.NewAttr("default_user_authorized_ssh_key", "string", false),
@@ -77,6 +78,7 @@ var (
 // TaskConfig contains configuration information for a task that runs within
 // this plugin.
 type TaskConfig struct {
+	XMLConfigPath       string         `codec:"domain_xml"`
 	ImagePath           string         `codec:"image"`
 	Hostname            string         `codec:"hostname"`
 	OS                  *OS            `codec:"os"`

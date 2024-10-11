@@ -64,10 +64,11 @@ var (
 		Name:              pluginName,
 	}
 
-	ErrExistingTaks    = errors.New("task is already running")
-	ErrStartingLibvirt = errors.New("unable to start libvirt")
-	ErrImageNotFound   = errors.New("disk image not found at path")
-	ErrTaskCrashed     = errors.New("task has crashed")
+	ErrExistingTaks      = errors.New("task is already running")
+	ErrStartingLibvirt   = errors.New("unable to start libvirt")
+	ErrImageNotFound     = errors.New("disk image not found at path")
+	ErrTaskCrashed       = errors.New("task has crashed")
+	ErrDomainXMLNotFound = errors.New("user provided domain xml not found at path")
 )
 
 // TaskState is the runtime state which is encoded in the handle returned to
@@ -616,29 +617,48 @@ func (d *VirtDriverPlugin) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHand
 
 	cpuSet := idset.Parse[hw.CoreID](cfg.Resources.LinuxResources.CpusetCpus)
 
-	dc := &domain.Config{
-		RemoveConfigFiles: true,
-		Name:              taskName,
-		Memory:            uint(cfg.Resources.NomadResources.Memory.MemoryMB),
-		CPUs:              uint(cpuSet.Size()),
-		CPUset:            cfg.Resources.LinuxResources.CpusetCpus,
-		OsVariant:         osVariant,
-		BaseImage:         diskImagePath,
-		DiskFmt:           diskFormat,
-		PrimaryDiskSize:   driverConfig.PrimaryDiskSize,
-		HostName:          hostname,
-		Mounts:            allocFSMounts,
-		CMDs:              driverConfig.CMDs,
-		BOOTCMDs:          bootCMDs,
-		CIUserData:        driverConfig.UserData,
-		Password:          driverConfig.DefaultUserPassword,
-		SSHKey:            driverConfig.DefaultUserSSHKey,
-		Files:             []domain.File{createEnvsFile(cfg.Env)},
-		NetworkInterfaces: driverConfig.NetworkInterfacesConfig,
-	}
+	var dc *domain.Config = nil
 
-	if err := dc.Validate(allowedPaths); err != nil {
-		return nil, nil, fmt.Errorf("virt: invalid configuration %s: %w", cfg.AllocID, err)
+	if driverConfig.XMLConfigPath != "" {
+		xmlPath := driverConfig.XMLConfigPath
+		if !fileExists(xmlPath) {
+
+			// Assuming the image was downloaded using artifacts and will be placed
+			// somewhere in the alloc's filesystem.
+			xmlPath = filepath.Join(cfg.TaskDir().Dir, xmlPath)
+			if !fileExists(xmlPath) {
+				return nil, nil, fmt.Errorf("virt: %s, %w", cfg.AllocID, ErrDomainXMLNotFound)
+			}
+		}
+		dc = &domain.Config{
+			XMLConfigPath: xmlPath,
+			Mounts:        allocFSMounts,
+			Name:          taskName,
+		}
+	} else {
+		dc = &domain.Config{
+			RemoveConfigFiles: true,
+			Name:              taskName,
+			Memory:            uint(cfg.Resources.NomadResources.Memory.MemoryMB),
+			CPUs:              uint(cpuSet.Size()),
+			CPUset:            cfg.Resources.LinuxResources.CpusetCpus,
+			OsVariant:         osVariant,
+			BaseImage:         diskImagePath,
+			DiskFmt:           diskFormat,
+			PrimaryDiskSize:   driverConfig.PrimaryDiskSize,
+			HostName:          hostname,
+			Mounts:            allocFSMounts,
+			CMDs:              driverConfig.CMDs,
+			BOOTCMDs:          bootCMDs,
+			CIUserData:        driverConfig.UserData,
+			Password:          driverConfig.DefaultUserPassword,
+			SSHKey:            driverConfig.DefaultUserSSHKey,
+			Files:             []domain.File{createEnvsFile(cfg.Env)},
+			NetworkInterfaces: driverConfig.NetworkInterfacesConfig,
+		}
+		if err := dc.Validate(allowedPaths); err != nil {
+			return nil, nil, fmt.Errorf("virt: invalid configuration %s: %w", cfg.AllocID, err)
+		}
 	}
 
 	if err := d.virtualizer.CreateDomain(dc); err != nil {

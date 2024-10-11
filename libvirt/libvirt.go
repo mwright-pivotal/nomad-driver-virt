@@ -453,10 +453,17 @@ func (d *driver) CreateDomain(config *domain.Config) error {
 	}
 
 	var domXML string
-	if config.XMLConfig != "" {
+	if config.XMLConfigPath != "" {
+		domXML, err = readDomainXMLFile(config)
+		d.logger.Debug("found domain xml file", "xml", domXML)
+		if err != nil {
+			return err
+		}
+	} else if config.XMLConfig != "" {
 		domXML = config.XMLConfig
 	} else {
 		domXML, err = parseConfiguration(config, cloudInitConfigPath)
+		d.logger.Debug("no domain xml provided.  generating one")
 		if err != nil {
 			return fmt.Errorf("libvirt: unable to parse domain configuration %s: %w", config.Name, err)
 		}

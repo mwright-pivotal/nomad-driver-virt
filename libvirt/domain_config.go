@@ -4,10 +4,52 @@
 package libvirt
 
 import (
+	"fmt"
+
 	domain "github.com/hashicorp/nomad-driver-virt/internal/shared"
+
+	"os"
 
 	"libvirt.org/go/libvirtxml"
 )
+
+func readDomainXMLFile(config *domain.Config) (string, error) {
+	dat, err := os.ReadFile(config.XMLConfigPath)
+	if err != nil {
+		return "", fmt.Errorf("libvirt: unable to read domain configuration file %s: %w", config.XMLConfigPath, err)
+	}
+	domXML := libvirtxml.Domain{}
+	domXML.Unmarshal(string(dat))
+
+	mounts := []libvirtxml.DomainFilesystem{}
+	for _, m := range config.Mounts {
+
+		var ro *libvirtxml.DomainFilesystemReadOnly
+		if m.ReadOnly {
+			ro = &libvirtxml.DomainFilesystemReadOnly{}
+		}
+
+		m := libvirtxml.DomainFilesystem{
+			AccessMode: defaultSecurityMode,
+			ReadOnly:   ro,
+			Source: &libvirtxml.DomainFilesystemSource{
+				Mount: &libvirtxml.DomainFilesystemSourceMount{
+					Dir: m.Source,
+				},
+			},
+			Target: &libvirtxml.DomainFilesystemTarget{
+				Dir: m.Tag,
+			},
+		}
+		mounts = append(mounts, m)
+	}
+
+	// augmenting user supplied things with nomad driver requirements
+	domXML.Devices.Filesystems = mounts
+	domXML.Name = config.Name
+
+	return domXML.Marshal()
+}
 
 func parseConfiguration(config *domain.Config, cloudInitPath string) (string, error) {
 	zero := uint(0)
@@ -96,6 +138,14 @@ func parseConfiguration(config *domain.Config, cloudInitPath string) (string, er
 			}
 		}
 	}
+	graphics := []libvirtxml.DomainGraphic{
+		{
+			VNC: &libvirtxml.DomainGraphicVNC{
+				Listen:   "0.0.0.0",
+				AutoPort: "autoport",
+			},
+		},
+	}
 
 	vcpus := &libvirtxml.DomainVCPU{
 		Placement: "static",
@@ -156,6 +206,7 @@ func parseConfiguration(config *domain.Config, cloudInitPath string) (string, er
 			},
 		},
 		Devices: &libvirtxml.DomainDeviceList{
+			Graphics: graphics,
 			Controllers: []libvirtxml.DomainController{
 				// Used for the base image disk
 				{
