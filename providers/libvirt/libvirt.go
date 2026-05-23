@@ -1134,8 +1134,13 @@ func (p *provider) findAvailableMountFs() (map[string]struct{}, error) {
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
 		if err := cmd.Run(); err != nil {
-			p.logger.Error("qemu device list failure", "stderr", stderr.String())
-			return nil, err
+			// Log the error but continue - this architecture may not be available on this system
+			p.logger.Debug("skipping architecture, emulator not available or failed",
+				"arch", guest.Arch.Name,
+				"emulator", guest.Arch.Emulator,
+				"error", err,
+				"stderr", stderr.String())
+			continue
 		}
 
 		scanner := bufio.NewScanner(&stdout)
