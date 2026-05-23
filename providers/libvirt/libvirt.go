@@ -1118,7 +1118,10 @@ func (p *provider) findAvailableMountFs() (map[string]struct{}, error) {
 
 	capsRaw, err := c.GetCapabilities()
 	if err != nil {
-		return nil, err
+		p.logger.Warn("failed to get libvirt capabilities, using fallback", "error", err)
+		// If we can't get capabilities, fall back to assuming 9p is available
+		// This allows the driver to initialize even if libvirt has capability issues
+		return map[string]struct{}{mountFs9p: {}}, nil
 	}
 
 	caps := &libvirtxml.Caps{}
