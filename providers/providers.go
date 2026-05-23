@@ -69,38 +69,53 @@ func (p *providers) Setup(config *virt.Config) error {
 	p.l.Lock()
 	defer p.l.Unlock()
 
+	p.logger.Info("providers setup starting")
+
 	if config == nil || config.Provider == nil {
+		p.logger.Error("no providers enabled in configuration")
 		return ErrNoProvidersEnabled
 	}
 
 	dispensers := make(map[string]dispenseProvider)
 
 	if config.Provider.Libvirt != nil {
+		p.logger.Info("initializing libvirt provider")
+		
 		// Create an instance and perform initialization
 		lv := libvirt.New(p.ctx, p.logger,
 			libvirt.WithConfig(config.Provider.Libvirt))
 		if err := lv.Init(); err != nil {
+			p.logger.Error("libvirt provider initialization failed", "error", err)
 			return err
 		}
+		p.logger.Debug("libvirt provider initialized successfully")
 
 		// Load the networking sub-system and initialize
+		p.logger.Debug("initializing libvirt networking")
 		lvnet, err := lv.Networking()
 		if err != nil {
+			p.logger.Error("failed to get libvirt networking", "error", err)
 			return err
 		}
 		if err := lvnet.Init(); err != nil {
+			p.logger.Error("libvirt networking initialization failed", "error", err)
 			return err
 		}
+		p.logger.Debug("libvirt networking initialized successfully")
 
 		// Setup the storage
+		p.logger.Debug("setting up libvirt storage", "pools", len(config.StoragePools))
 		if err := lv.SetupStorage(config.StoragePools); err != nil {
+			p.logger.Error("libvirt storage setup failed", "error", err)
 			return err
 		}
+		p.logger.Debug("libvirt storage setup complete")
 
 		// Add the dispenser for the libvirt provider
 		dispensers[libvirt.Name] = func(ctx context.Context) (virt.Virtualizer, error) {
 			return lv.Copy(ctx), nil
 		}
+		p.logger.Info("libvirt provider registered successfully")
 	}
 
 	if len(dispensers) == 0 {

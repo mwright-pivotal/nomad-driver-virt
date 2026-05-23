@@ -299,23 +299,32 @@ func (p *provider) Close() error {
 // Init initializes the provider.
 // implements virt.Virtualizer
 func (p *provider) Init() error {
+	p.logger.Info("libvirt provider initialization starting", "uri", p.uri)
+	
 	c, err := p.connection()
 	if err != nil {
+		p.logger.Error("failed to establish libvirt connection", "error", err, "uri", p.uri)
 		return err
 	}
+	p.logger.Debug("libvirt connection established successfully")
 
 	p.libvirtVersion, err = c.GetVersion()
 	if err != nil {
-		p.logger.Debug("unable to get libvirt version", "error", err)
+		p.logger.Error("unable to get libvirt version", "error", err)
 		return err
 	}
+	p.logger.Info("libvirt version detected", "version", computeVersion(p.libvirtVersion))
 
 	// Determine what filesystems are supported for mounting within
 	// the guest.
+	p.logger.Debug("detecting available mount filesystems")
 	if p.availableMountFs, err = p.findAvailableMountFs(); err != nil {
+		p.logger.Error("failed to detect mount filesystems", "error", err)
 		return err
 	}
+	p.logger.Info("mount filesystem detection complete", "available", p.availableMountFs)
 
+	p.logger.Info("libvirt provider initialization complete")
 	return nil
 }
 
