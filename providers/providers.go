@@ -104,7 +104,7 @@ func (p *providers) Setup(config *virt.Config) error {
 		p.logger.Debug("libvirt networking initialized successfully")
 
 		// Setup the storage
-		p.logger.Debug("setting up libvirt storage", "pools", len(config.StoragePools))
+		p.logger.Debug("setting up libvirt storage")
 		if err := lv.SetupStorage(config.StoragePools); err != nil {
 			p.logger.Error("libvirt storage setup failed", "error", err)
 			return err
